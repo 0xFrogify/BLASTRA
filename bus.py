@@ -27,11 +27,29 @@ EVENTS = STATE / "events.jsonl"
 ORDERS = STATE / "orders.jsonl"
 CONTROL = ROOT / "control.json"
 
-STATE.mkdir(parents=True, exist_ok=True)
+
+def ensure_state():
+    """Create the state directory. Called on first write, never on import.
+
+    Importing a module must not touch the filesystem. The default ROOT is an
+    absolute path that an unprivileged user cannot create, so doing this at
+    import time made `import bus` — and therefore every module that imports
+    it, and therefore the test suite — crash for anyone who had not already
+    set BLOB_ROOT and did not happen to be root.
+    """
+    try:
+        STATE.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise RuntimeError(
+            f"cannot create state directory {STATE}: {e}. "
+            f"Set BLOB_ROOT to a path you can write to, e.g. "
+            f'export BLOB_ROOT="$PWD/run"'
+        ) from e
 
 
 def emit(kind, **payload):
     """Append one event. Locked, so four writers never interleave a line."""
+    ensure_state()
     rec = {"ts": time.time(), "kind": kind, **payload}
     line = json.dumps(rec, separators=(",", ":")) + "\n"
     with EVENTS.open("a") as f:
@@ -42,7 +60,16 @@ def emit(kind, **payload):
 
 
 def tail(path, pos):
-    """Read new lines since pos. Survives rotation. Skips torn writes."""
+    """Read new lines since pos. Survives rotation. Skips torn writes.
+
+    readline() rather than `for line in f`: iterating a text file disables
+    tell() until the iterator is exhausted, so breaking out early on a partial
+    line — the exact case this function exists to handle — made the following
+    tell() raise OSError and take the reader's loop down with it.
+
+    pos advances only past COMPLETE lines, so a torn write is re-read whole on
+    the next pass instead of being skipped.
+    """
     p = Path(path)
     if not p.exists():
         return [], pos
@@ -51,12 +78,15 @@ def tail(path, pos):
     out = []
     with p.open() as f:
         f.seek(pos)
-        for line in f:
+        while True:
+            line = f.readline()
+            if not line:
+                break                       # EOF
             if not line.endswith("\n"):
                 break                       # partial write, pick it up next pass
             with contextlib.suppress(json.JSONDecodeError):
                 out.append(json.loads(line))
-        pos = f.tell()
+            pos = f.tell()
     return out, pos
 
 

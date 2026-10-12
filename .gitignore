@@ -1,0 +1,29 @@
+# secrets
+.env
+*.pem
+*.key
+keystore/
+
+# runtime state — never commit your book or your watchlist
+run/
+state/
+control.json
+*.jsonl
+!lessons/example.lessons.jsonl
+
+# your actual brain
+lessons/*.jsonl
+!lessons/example.lessons.jsonl
+torah.local.md
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/

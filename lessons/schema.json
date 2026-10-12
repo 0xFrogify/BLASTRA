@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xFrogify/BLASTRA/lessons/schema.json",
+  "title": "Lesson",
+  "description": "One falsifiable rule written after a position closed. One JSON object per line in a .jsonl file. A lesson that is not falsifiable, or that would not have changed a decision, is an observation and does not belong in this file.",
+  "type": "object",
+  "required": ["id", "cluster", "rule", "fingerprint", "evidence", "written_ts"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^b-[0-9]{4,}$",
+      "description": "Stable id. Never reused, never renumbered after a merge."
+    },
+    "cluster": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 48,
+      "description": "Which lobe of the brain this belongs to. Clusters are free-form, but keep the set small — a brain with sixty clusters has no clusters."
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 12,
+      "maxLength": 400,
+      "description": "The lesson itself, stated so that it can be applied mechanically to a past position and produce a different decision. 'Be more careful' fails this field."
+    },
+    "fingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{16}$",
+      "description": "Stable hash of the normalised rule, used for deduplication. Two lessons with the same fingerprint MUST be merged rather than both stored. This is the field that stops a brain from holding the same lesson forty times."
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 0.5,
+      "description": "How strongly this lesson pulls on a decision. Grows with corroborating evidence, decays when a counterfactual contradicts it."
+    },
+    "active": {
+      "type": "boolean",
+      "default": true,
+      "description": "A retired lesson stays in the file. Deleting history is how you learn the same thing twice."
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Closed positions this lesson was derived from or corroborated by. A lesson with no evidence is an opinion.",
+      "items": {
+        "type": "object",
+        "required": ["ref", "outcome"],
+        "additionalProperties": false,
+        "properties": {
+          "ref": {
+            "type": "string",
+            "description": "Your own reference for the closed position. Deliberately opaque — this schema does not require you to publish your book."
+          },
+          "outcome": {
+            "type": "string",
+            "enum": ["confirmed", "contradicted", "counterfactual_null"],
+            "description": "confirmed: applying the rule would have improved the decision. contradicted: it would have made it worse. counterfactual_null: it would have changed nothing, which is why the lesson may not deserve to exist."
+          },
+          "note": { "type": "string", "maxLength": 240 }
+        }
+      }
+    },
+    "merged_from": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^b-[0-9]{4,}$" },
+      "description": "Ids absorbed into this lesson. Populated by the merge step; its emptiness across a whole file is a symptom, not a clean bill of health."
+    },
+    "supersedes": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^b-[0-9]{4,}$" },
+      "description": "Lessons this one replaces outright, as opposed to absorbs."
+    },
+    "written_ts": { "type": "number", "description": "Unix seconds." },
+    "last_touched_ts": { "type": "number" }
+  }
+}

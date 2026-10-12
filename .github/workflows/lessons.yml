@@ -1,0 +1,29 @@
+name: lessons
+
+on:
+  push:
+    paths: ['lessons/**']
+  pull_request:
+    paths: ['lessons/**']
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install jsonschema==4.23.0
+      - name: schema
+        run: |
+          python - <<'PY'
+          import json, jsonschema
+          s = json.load(open('lessons/schema.json'))
+          n = 0
+          for line in open('lessons/example.lessons.jsonl'):
+              if line.strip():
+                  jsonschema.validate(json.loads(line), s); n += 1
+          print(f'{n} lessons validate')
+          PY
+      - name: duplicates
+        run: python lessons/fingerprint.py --check lessons/example.lessons.jsonl

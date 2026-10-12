@@ -1,0 +1,7 @@
+# Pinned to versions current at time of writing. Loosen deliberately, not by habit.
+web3==6.20.3
+requests==2.32.3
+PyYAML==6.0.2
+
+# dev / CI only
+jsonschema==4.23.0

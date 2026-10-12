@@ -1,6 +1,10 @@
 <div align="center">
 
-# BLASTRA
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/banner-dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="docs/img/banner.png">
+  <img alt="BLASTRA" src="docs/img/banner.png" width="640">
+</picture>
 
 **An AI trading brain that reads attention on X before it reaches the chart.**
 

@@ -1,0 +1,63 @@
+[project]
+name = "blastra"
+version = "0.1.0"
+description = "An AI trading brain that reads attention on X before it reaches the chart"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "web3==6.20.3",
+    "requests==2.32.3",
+    "PyYAML==6.0.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.3",
+    "ruff==0.7.4",
+    "mypy==1.13.0",
+    "jsonschema==4.23.0",
+    "types-requests",
+    "types-PyYAML",
+]
+
+[project.urls]
+Repository = "https://github.com/0xFrogify/BLASTRA"
+
+[tool.setuptools]
+py-modules = [
+    "bus", "scout_watch", "chain_watch", "solana_watch",
+    "token_audit", "tg_bridge",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",    # line length is handled by the formatter
+    "B008",    # function call in default arg — intentional for env-read defaults
+    "RUF001",  # en/em dashes and minus signs in prose are deliberate, not typos
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true
+# The modules written before the typing pass are not yet annotated. New code is.
+# Tighten this file by file rather than silencing it globally.
+files = ["solana_watch.py", "bus.py", "lessons/fingerprint.py"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

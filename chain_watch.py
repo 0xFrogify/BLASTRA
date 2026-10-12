@@ -34,8 +34,12 @@ weights train on these outcomes a single invented link poisons every score
 downstream. Wallet identity here is either self-disclosed or absent.
 """
 
-import os, json, time, sqlite3, statistics
-from pathlib import Path
+import json
+import os
+import sqlite3
+import statistics
+import time
+
 import requests
 from web3 import Web3
 
@@ -335,10 +339,10 @@ def deployer_record(c, addr):
                   (addr,)).fetchone()
     if not r:
         return {"launches": 0, "graduates": 0, "rate": None, "serial": False}
-    l, g = r
-    return {"launches": l, "graduates": g,
-            "rate": round(g / l, 4) if l else None,
-            "serial": l >= 10 and (g / l) < 0.05}
+    launches, graduates = r
+    return {"launches": launches, "graduates": graduates,
+            "rate": round(graduates / launches, 4) if launches else None,
+            "serial": launches >= 10 and (graduates / launches) < 0.05}
 
 
 def first_buyers(c, contract, n=50):
@@ -361,7 +365,10 @@ def social_early(ticker, before_ts, window_h=6):
     mcap floor. Text + timestamp only. No identity claim, nothing to invent."""
     tag = ticker.upper().lstrip("$")
     floor = before_ts - window_h * 3600
-    hits, pos = set(), 0
+    # Full scan, deliberately: this is a backward-looking join over a closed
+    # time window, not a streaming tail, so there is no cursor to carry. On a
+    # long-lived events.jsonl this is the call to rotate the log for.
+    hits = set()
     evs, _ = bus.tail(bus.EVENTS, 0)
     for e in evs:
         if not (floor <= e["ts"] < before_ts):

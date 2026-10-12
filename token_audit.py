@@ -15,8 +15,11 @@ it did not run. A system that silently upgrades "I could not check" into
 will be the rug. torah.md treats UNKNOWN on a hard check as a block.
 """
 
-import os, json, time
-from dataclasses import dataclass, asdict
+import json
+import os
+import time
+from dataclasses import asdict, dataclass
+
 from web3 import Web3
 from web3.exceptions import ContractLogicError
 

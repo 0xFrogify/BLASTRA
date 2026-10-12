@@ -13,12 +13,12 @@ The opinions live in a markdown file you can read and argue with.
 
 > ### ⚠️ This repository is incomplete and still being updated
 >
-> What is here is real and runs. What is **not** here yet:
+> The sensors, the audit suite and the control plane are real, typed, linted and
+> tested. What is **not** here yet:
 >
 > - the **agent runtime** — the glue that tails the bus, builds context and calls a model. The four desks ship as role specs, not running processes.
 > - the **lesson loader** — the format is stable and documented; the reader is not written.
-> - `whale_watch.py` — referenced by the bus docstring, not yet published.
-> - the **brain map viewer** — the 3D lesson visualiser is a sketch and is deliberately not in this repo until it is worth your time.
+> - the **brain map viewer** — the 3D lesson visualiser is a sketch and is deliberately out of this repo until it is worth your time.
 >
 > Treat this as a working skeleton and a design document, not a product you can
 > `pip install` and point at a wallet. Issues and PRs welcome. Star it if you
@@ -66,7 +66,8 @@ cannot take the system down with it.
 flowchart TB
     subgraph sensors["SENSORS · deterministic, no opinions"]
         SW["scout_watch.py<br/><i>X accounts, follow graph,<br/>reply velocity</i>"]
-        CW["chain_watch.py<br/><i>launches, graduations,<br/>whales, funding clusters</i>"]
+        CW["chain_watch.py<br/><i>EVM · Robinhood Chain<br/>launches, whales, clusters</i>"]
+        SOL["solana_watch.py<br/><i>Solana · same events,<br/>plain JSON-RPC</i>"]
         TA["token_audit.py<br/><i>8 contract checks<br/>PASS / FAIL / UNKNOWN</i>"]
     end
 
@@ -87,6 +88,7 @@ flowchart TB
 
     SW --> BUS
     CW --> BUS
+    SOL --> BUS
     TA --> BUS
     BUS --> SC --> WE --> LI --> CH
     TORAH -.governs.-> SC
@@ -109,7 +111,8 @@ accumulate in, not a pipeline anyone enforces.
 |  | sees | decides | can be wrong about |
 |---|---|---|---|
 | `scout_watch.py` | X accounts | nothing | nothing — it diffs lists |
-| `chain_watch.py` | the chain | nothing | nothing — it reads logs |
+| `chain_watch.py` | Robinhood Chain | nothing | nothing — it reads logs |
+| `solana_watch.py` | Solana | nothing | nothing — it diffs balances |
 | `token_audit.py` | contracts | nothing | nothing — checks return a verdict |
 | **SCOUT** | events | what is worth opening | which narratives matter |
 | **WEIGHER** | narratives | what attention is real | how much a mention is worth |
@@ -213,17 +216,64 @@ on your own money.
 ```bash
 git clone https://github.com/0xFrogify/BLASTRA.git && cd BLASTRA
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e ".[dev]"
 
 cp .env.example .env     # then fill it in
 export BLOB_ROOT="$PWD/run"
-
-python token_audit.py 0xYourTokenAddress   # the one piece that runs standalone
 ```
 
-`token_audit.py` is the honest entry point: give it a contract and it prints
-eight checks and a verdict. The sensors need RPC access and an X source; the
-desks need the runtime that is not written yet.
+Two things run standalone, with no agent runtime and no API keys:
+
+```bash
+python solana_watch.py --selftest          # live check against Solana mainnet
+python token_audit.py 0xYourTokenAddress   # 8 checks and a verdict
+```
+
+## Verifying it actually works
+
+This matters more than usual here, so it gets its own section.
+
+```bash
+pytest          # 41 tests, no network required
+ruff check .    # lint
+mypy            # types on the annotated modules
+```
+
+The test suite covers the **pure** half of the sensors — every function that
+turns an RPC response into a decision, which is where the bugs that cost money
+live. Transfers parsed from a balance diff, launches distinguished from buys,
+failed transactions rejected, whale thresholds at the boundary, market cap from
+curve reserves, band crossings staying monotonic, funding-root resolution, and
+every one of those functions fed deliberately malformed input to prove it
+degrades to "no information" instead of crashing the loop.
+
+The suite is mutation-tested. Break the supply guard, delete the failed-transaction
+check, flip the whale comparison to `>`, make `mcap_sol` return `0.0` instead of
+`None`, let crossed bands re-emit, or stop treating an unknown funder as
+disqualifying — each one turns a test red. Tests that pass no matter what the
+code does are decoration.
+
+**What the tests do not cover is the transport**, because they run with no
+network by design. That is what `--selftest` is for:
+
+```
+$ python solana_watch.py --selftest
+endpoint: https://api.mainnet-beta.solana.com
+
+  PASS  getHealth  (412ms)
+  PASS  getSlot  (118ms)
+        current slot 301284771
+  PASS  getSignaturesForAddress(6EF8rrec…)  (203ms)
+        5 recent signatures
+  PASS  getTransaction(most recent)  (331ms)
+        parsed 4 balance change(s), 3 program(s)
+
+selftest PASSED
+```
+
+It also catches the single most likely configuration error: if
+`SOL_LAUNCH_PROGRAM` is wrong, the launch program will be absent from its own
+transaction, and the selftest says so instead of silently watching nothing.
 
 ### Configuration
 
@@ -232,6 +282,11 @@ desks need the runtime that is not written yet.
 | `BLOB_ROOT` | `/oracle` | everything — where `state/`, `control.json` and `torah.md` live |
 | `RHC_RPC` | public Robinhood Chain RPC | `chain_watch`, `token_audit` |
 | `RHC_BLOCKSCOUT` | public Blockscout API | `chain_watch` |
+| `SOL_RPC` | public mainnet-beta | `solana_watch` |
+| `SOL_LAUNCH_PROGRAM` | pump.fun program id | `solana_watch` |
+| `SOL_AMM_PROGRAM` | PumpSwap program id | `solana_watch` |
+| `SOL_WHALE_FRACTION` | `0.015` | `solana_watch` |
+| `SOL_MCAP_BANDS` | `50,100,…` (SOL) | `solana_watch` |
 | `PONS_FACTORY` | — | `chain_watch`, `token_audit` |
 | `PONS_CODEHASHES` | — | `token_audit` |
 | `TG_BOT_TOKEN` | — | `tg_bridge` — a bot token, never a user session |
@@ -264,11 +319,13 @@ Run it on money you are prepared to lose, or on nothing at all.
 torah.md                  the origin file — every gate and threshold
 bus.py                    the entire integration surface, 72 lines
 scout_watch.py            X sensor: watchlist tiering, follow diffs, velocity
-chain_watch.py            on-chain sensor: launches, whales, funding clusters
+chain_watch.py            EVM sensor: launches, whales, funding clusters
+solana_watch.py           Solana sensor: same events, plain JSON-RPC, typed
 token_audit.py            8 contract checks → CLEAN / FLAGS / INCONCLUSIVE / REJECT
 tg_bridge.py              reporting + approvals + kill switch
 agents/                   the four desks, as model-agnostic role specs
 lessons/                  lesson schema, dedup audit, 8 examples
+tests/                    41 tests over the parsing and decision logic
 ```
 
 ## Contributing

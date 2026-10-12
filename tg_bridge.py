@@ -22,8 +22,11 @@ your permission; that is what the gates were for. You get a card after the
 fact with a KILL button on it.
 """
 
-import json, time, os, threading
-from pathlib import Path
+import contextlib
+import json
+import os
+import threading
+import time
 
 import requests
 import yaml
@@ -86,11 +89,9 @@ def send(text, buttons=None):
 
 
 def ack(cb_id, text):
-    try:
+    with contextlib.suppress(Exception):
         requests.post(f"{API}/answerCallbackQuery",
                       json={"callback_query_id": cb_id, "text": text}, timeout=8)
-    except Exception:
-        pass
 
 
 KILL = [[{"text": "KILL ALL", "callback_data": "kill"},
@@ -226,18 +227,20 @@ def handle(u):
         d, cid = cb["data"], cb["id"]
 
         if d == "kill":
-            set_control(mode="kill"); ack(cid, "KILL SENT")
+            set_control(mode="kill")
+            ack(cid, "KILL SENT")
             send("<b>KILL SWITCH ENGAGED</b>\nEverything flattens on CHIEF's "
                  "next tick. No new entries until /resume.")
         elif d == "halt":
-            set_control(mode="halt"); ack(cid, "halted")
+            set_control(mode="halt")
+            ack(cid, "halted")
             send("<b>HALTED</b>\nOpen ladders keep running. No new entries.")
         elif d.startswith(("ok:", "no:")):
             v, oid = d.split(":", 1)
             decide(oid, "approve" if v == "ok" else "skip")
             ack(cid, "approved" if v == "ok" else "skipped")
-            send(("approved <code>%s</code>" % oid) if v == "ok"
-                 else ("skipped <code>%s</code>" % oid))
+            send(f"approved <code>{oid}</code>" if v == "ok"
+                 else f"skipped <code>{oid}</code>")
         return
 
     msg = (u.get("message", {}).get("text") or "").strip().lower()
@@ -248,11 +251,14 @@ def handle(u):
         set_control(manual=True)
         send("entries <b>MANUAL</b> — every entry waits for APPROVE.")
     elif msg == "/kill":
-        set_control(mode="kill"); send("<b>KILL SWITCH ENGAGED</b>")
+        set_control(mode="kill")
+        send("<b>KILL SWITCH ENGAGED</b>")
     elif msg == "/halt":
-        set_control(mode="halt"); send("<b>HALTED</b>")
+        set_control(mode="halt")
+        send("<b>HALTED</b>")
     elif msg == "/resume":
-        set_control(mode="run"); send("resumed · mode <b>run</b>")
+        set_control(mode="run")
+        send("resumed · mode <b>run</b>")
     elif msg == "/status":
         send(status())
     elif msg in ("/start", "/help"):

@@ -14,7 +14,11 @@ the entire integration surface, and it is why a dead Telegram API or a
 throttled RPC cannot take the system down with it.
 """
 
-import json, time, os, fcntl
+import contextlib
+import fcntl
+import json
+import os
+import time
 from pathlib import Path
 
 ROOT = Path(os.environ.get("BLOB_ROOT", "/oracle"))
@@ -50,10 +54,8 @@ def tail(path, pos):
         for line in f:
             if not line.endswith("\n"):
                 break                       # partial write, pick it up next pass
-            try:
+            with contextlib.suppress(json.JSONDecodeError):
                 out.append(json.loads(line))
-            except json.JSONDecodeError:
-                pass
         pos = f.tell()
     return out, pos
 

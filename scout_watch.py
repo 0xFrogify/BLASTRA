@@ -16,9 +16,11 @@ What it does:
 Emits JSON events to /oracle/state/events.jsonl for the agents to read.
 """
 
-import json, sqlite3, time, math, random
-from pathlib import Path
+import random
+import sqlite3
+import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import bus
 

@@ -339,6 +339,13 @@ the bus, assemble context from `torah.md` plus a role spec plus recent events,
 call a model and emit. It is deliberately unwritten rather than written badly,
 and it should stay provider-agnostic.
 
+## Credits
+
+Built by [**@0xFrogify**](https://github.com/0xFrogify).
+
+Engineering contributions by **Claude** (Anthropic) — the Solana sensor, the
+test suite, the lesson deduplication audit, and the project tooling.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
